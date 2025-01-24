@@ -20,7 +20,12 @@ class BMSInterface:
         self.create_ui()
 
         # Configurer le bus CAN
-        self.bus = can.interface.Bus(interface='pcan', channel='PCAN_USBBUS1', bitrate=500000)
+        try:
+            self.bus = can.interface.Bus(interface='pcan', channel='PCAN_USBBUS1', bitrate=500000)
+            self.connected = True
+        except can.CanError:
+            self.bus = None
+            self.connected = False
 
         # Lancer la mise à jour périodique
         self.update_values()
@@ -90,9 +95,25 @@ class BMSInterface:
         entry_serial.grid(row=0, column=1, padx=5, pady=5)
         self.entries["Numéro de Série"] = entry_serial
 
+        # Label pour l'état de connexion
+        self.status_label = tk.Label(self.root, text="Not Connected", font=("Arial", 12, "bold"), fg="red", bg='#C1DBD8')
+        self.status_label.place(x=20, y=530)
+
     def update_values(self):
-        """Met à jour les valeurs affichées dans l'interface."""
+        """Met à jour les valeurs affichées dans l'interface et gère les reconnexions."""
+        if not self.connected:
+            # Essayer de reconnecter le bus CAN
+            try:
+                self.bus = can.interface.Bus(interface='pcan', channel='PCAN_USBBUS1', bitrate=500000)
+                self.connected = True
+                self.status_label.config(text="Connected", fg="green")
+            except can.CanError:
+                self.status_label.config(text="Not Connected", fg="red")
+                self.root.after(1000, self.update_values)  # Réessayer après 1 seconde
+                return
+
         try:
+            # Lire les messages CAN si connecté
             message = self.bus.recv(timeout=0.1)  # Lecture non bloquante
             if message:
                 trame_id, valeurs = decoder_trame(message)
@@ -112,6 +133,8 @@ class BMSInterface:
 
         except can.CanError as e:
             print(f"Erreur CAN : {e}")
+            self.status_label.config(text="Not Connected", fg="red")
+            self.connected = False
 
         # Replanifie cette méthode pour une exécution continue
         self.root.after(100, self.update_values)
