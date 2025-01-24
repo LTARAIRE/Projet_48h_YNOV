@@ -20,15 +20,23 @@ class BMSInterface:
         self.create_ui()
 
         # Configurer le bus CAN
-        try:
-            self.bus = can.interface.Bus(interface='pcan', channel='PCAN_USBBUS1', bitrate=500000)
-            self.connected = True
-        except can.CanError:
-            self.bus = None
-            self.connected = False
+        self.connected = False
+        self.init_can()
 
         # Lancer la mise à jour périodique
         self.update_values()
+
+    def init_can(self):
+        """Initialise le bus CAN et met à jour le statut de connexion."""
+        try:
+            self.bus = can.interface.Bus(interface='pcan', channel='PCAN_USBBUS1', bitrate=500000)
+            self.connected = True
+            self.status_label.config(text="Connected", fg="green")
+        except can.CanError as e:
+            self.bus = None
+            self.connected = False
+            self.status_label.config(text=f"Not Connected: {e}", fg="red")
+            print(f"Erreur CAN lors de l'initialisation : {e}")
 
     def create_ui(self):
         """Créer l'interface utilisateur."""
@@ -100,36 +108,31 @@ class BMSInterface:
         self.status_label.place(x=20, y=530)
 
     def update_values(self):
-        """Met à jour les valeurs affichées dans l'interface et gère les reconnexions."""
+        """Met à jour les valeurs affichées dans l'interface et vérifie la connexion."""
         if not self.connected:
             # Essayer de reconnecter le bus CAN
-            try:
-                self.bus = can.interface.Bus(interface='pcan', channel='PCAN_USBBUS1', bitrate=500000)
-                self.connected = True
-                self.status_label.config(text="Connected", fg="green")
-            except can.CanError:
-                self.status_label.config(text="Not Connected", fg="red")
-                self.root.after(1000, self.update_values)  # Réessayer après 1 seconde
-                return
+            self.init_can()
 
         try:
-            # Lire les messages CAN si connecté
-            message = self.bus.recv(timeout=0.1)  # Lecture non bloquante
-            if message:
-                trame_id, valeurs = decoder_trame(message)
-                if trame_id is not None:
-                    self.gestionnaire.mettre_a_jour(trame_id, valeurs)
+            if self.connected:
+                # Lire les messages CAN si connecté
+                message = self.bus.recv(timeout=0.1)  # Lecture non bloquante
+                if message:
+                    print(f"Message reçu : ID={message.arbitration_id}, Data={message.data}")
+                    trame_id, valeurs = decoder_trame(message)
+                    if trame_id is not None:
+                        self.gestionnaire.mettre_a_jour(trame_id, valeurs)
 
-            # Mettre à jour les champs
-            valeurs = self.gestionnaire.recuperer_valeurs()
-            for trame_id, cellules in valeurs.items():
-                for cellule, valeur in cellules.items():
-                    if cellule in self.entries:
-                        entry = self.entries[cellule]
-                        entry.config(state="normal")
-                        entry.delete(0, tk.END)
-                        entry.insert(0, str(valeur))
-                        entry.config(state="readonly")
+                # Mettre à jour les champs
+                valeurs = self.gestionnaire.recuperer_valeurs()
+                for trame_id, cellules in valeurs.items():
+                    for cellule, valeur in cellules.items():
+                        if cellule in self.entries:
+                            entry = self.entries[cellule]
+                            entry.config(state="normal")
+                            entry.delete(0, tk.END)
+                            entry.insert(0, str(valeur))
+                            entry.config(state="readonly")
 
         except can.CanError as e:
             print(f"Erreur CAN : {e}")
@@ -137,9 +140,11 @@ class BMSInterface:
             self.connected = False
 
         # Replanifie cette méthode pour une exécution continue
-        self.root.after(100, self.update_values)
+        self.root.after(1000, self.update_values)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = BMSInterface(root)
+
     root.mainloop()
