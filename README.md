@@ -232,3 +232,96 @@ Pour envoyer et recevoir des trames CAN, il est recommandé d'utiliser **PCAN-Vi
 - Surveiller l’activité sur le bus CAN et déboguer les données échangées.
 
 Vous pouvez également utiliser ce logiciel pour simuler ou tester l’envoi de trames à l’application BMS que vous développez.
+
+# Guide d'installation et d'exécution du projet
+
+### Ce guide explique comment cloner le dépôt, configurer l'environnement Python, installer les dépendances, et lancer l'application.
+#### Prérequis
+
+Avant de commencer, assurez-vous que votre système est configuré avec les éléments suivants :
+
+    Python 3.8 ou supérieur
+    Git (facultatif, mais recommandé pour cloner le dépôt)
+
+Étapes d'installation
+1. Cloner le dépôt
+
+Utilisez Git pour récupérer le projet :
+
+```
+git clone <URL_DU_DEPOT>
+cd <NOM_DU_PROJET>
+```
+
+Si vous ne souhaitez pas utiliser Git, vous pouvez télécharger les fichiers directement depuis l'interface web du dépôt.
+2. Lancer le script setup.bat (Windows)
+
+Pour simplifier l'installation, un script automatisé est fourni. Il créera un environnement virtuel, installera les dépendances et lancera l'application.
+
+    Double-cliquez sur le fichier setup.bat ou exécutez-le depuis une invite de commande :
+
+    setup.bat
+
+Ce script effectue les actions suivantes :
+
+    Création d'un environnement virtuel venv.
+    Activation de l'environnement.
+    Installation des dépendances à partir du fichier requirements.txt.
+    Lancement du fichier main.py.
+
+3. Lancer le script setup.sh (Linux/macOS)
+
+Pour les utilisateurs non-Windows, créez un script bash équivalent :
+
+    Créez un fichier setup.sh avec le contenu suivant :
+
+#!/bin/bash
+
+# Création de l'environnement virtuel
+
+    python3 -m venv venv
+
+
+# Activation de l'environnement
+
+    source venv/bin/activate
+
+# Mise à jour de pip
+
+    pip install --upgrade pip
+
+# Installation des dépendances
+
+    pip install -r requirements.txt
+
+# Lancement de l'application
+
+    python main.py
+
+    Rendez-le exécutable :
+
+    chmod +x setup.sh
+
+    cd Exécutez le script :
+
+    ./setup.sh
+
+Dépannage
+Le programme ne se lance pas
+
+    Vérifiez que Python est correctement installé et que sa version est compatible (3.8 ou supérieur).
+    Assurez-vous que toutes les dépendances ont été installées via requirements.txt.
+
+Problèmes avec le bus CAN
+
+    Vérifiez que votre matériel CAN est connecté correctement.
+    Assurez-vous que le canal et le bitrate sont correctement configurés dans le fichier main.py.
+
+Détails techniques
+Structure du projet
+
+    main.py : Fichier principal pour exécuter l'application.
+    UI.py : Interface utilisateur basée sur Tkinter.
+    Trame.py : Gestion des trames CAN (décodage, mise à jour, etc.).
+    setup.bat : Script d'installation automatisé pour Windows.
+    requirements.txt : Liste des dépendances nécessaires.
