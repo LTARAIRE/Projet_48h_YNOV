@@ -1,119 +1,167 @@
-import tkinter as tk
+import customtkinter as ctk
+from tkinter import DoubleVar
 
-def dessiner_batterie(canvas, x, y, largeur, hauteur, pourcentage):
-    """Dessine un rectangle représentant une cellule de batterie."""
-    # Dessiner le contour de la batterie
-    canvas.create_rectangle(x, y, x + largeur, y + hauteur, outline="black", width=2)
-    # Calculer la hauteur du niveau de charge
-    hauteur_charge = (hauteur - 4) * pourcentage / 100
-    # Dessiner le niveau de charge
-    canvas.create_rectangle(x + 2, y + (hauteur - 2 - hauteur_charge), x + largeur - 2, y + hauteur - 2, fill="green")
+# Configuration de CustomTkinter
+ctk.set_appearance_mode("dark")  # Modes: "dark", "light", "system"
+ctk.set_default_color_theme("blue")  # Thèmes: "blue", "green", "dark-blue"
 
-def mettre_a_jour_batterie(canvas, rect_id, pourcentage, x, y, largeur, hauteur):
-    """Met à jour un rectangle représentant une cellule de batterie."""
-    # Effacer l'ancien niveau de charge
-    canvas.delete(rect_id)
-    # Calculer la nouvelle hauteur du niveau de charge
-    hauteur_charge = (hauteur - 4) * pourcentage / 100
-    # Dessiner le nouveau niveau de charge
-    rect_id = canvas.create_rectangle(x + 2, y + (hauteur - 2 - hauteur_charge), x + largeur - 2, y + hauteur - 2, fill="green")
-    return rect_id
+class BMSInterface(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
-# Créer la fenêtre principale
-root = tk.Tk()
-root.title("Test Représentation de la charge des cellules")
+        # Configurer la fenêtre principale
+        self.title("BMS Interface")
+        self.geometry("1200x800")
+        self.bind("<Configure>", self.resize_widgets)
 
-# Créer un canvas pour dessiner les batteries
-canvas = tk.Canvas(root, width=600, height=400, bg="white")
-canvas.pack()
+        # Création des widgets
+        self.create_sidebar()
+        self.create_ui()
 
-# Exemple de données de tension des cellules (en volts)
-tensions = [3.5, 3.7, 3.6, 3.2, 3.9]
-import tkinter as tk
+    def create_sidebar(self):
+        """Créer une barre latérale pour naviguer entre les écrans."""
+        self.sidebar = ctk.CTkFrame(self, width=200)
+        self.sidebar.pack(side="left", fill="y")
 
-def dessiner_batterie(canvas, x, y, largeur, hauteur, pourcentage):
-    """Dessine un rectangle représentant une cellule de batterie."""
-    # Dessiner le contour de la batterie
-    canvas.create_rectangle(x, y, x + largeur, y + hauteur, outline="black", width=2)
-    # Calculer la hauteur du niveau de charge
-    hauteur_charge = (hauteur - 4) * pourcentage / 100
-    # Dessiner le niveau de charge
-    rect_id = canvas.create_rectangle(x + 2, y + (hauteur - 2 - hauteur_charge), x + largeur - 2, y + hauteur - 2, fill="green")
-    return rect_id
+        sidebar_title = ctk.CTkLabel(self.sidebar, text="Menu", font=("Arial", 20))
+        sidebar_title.pack(pady=20)
 
-def mettre_a_jour_batterie(canvas, rect_id, x, y, largeur, hauteur, pourcentage):
-    """Met à jour un rectangle représentant une cellule de batterie."""
-    # Effacer l'ancien niveau de charge
-    canvas.delete(rect_id)
-    # Calculer la nouvelle hauteur du niveau de charge
-    hauteur_charge = (hauteur - 4) * pourcentage / 100
-    # Dessiner le nouveau niveau de charge
-    rect_id = canvas.create_rectangle(x + 2, y + (hauteur - 2 - hauteur_charge), x + largeur - 2, y + hauteur - 2, fill="green")
-    return rect_id
+        self.sidebar_buttons = []
+        menu_items = ["Cell Voltages", "Alerts", "Temperatures", "Hardware/Software Versions", "Serial Number", "Battery Stats"]
+        for item in menu_items:
+            button = ctk.CTkButton(self.sidebar, text=item, command=lambda name=item: self.show_frame(name))
+            button.pack(pady=10, padx=20, fill="x")
+            self.sidebar_buttons.append(button)
 
-# Callback pour mettre à jour le niveau de charge
-def update_charge():
-    try:
-        # Récupérer la valeur entrée
-        valeur = float(entry_tension.get())
-        pourcentage = max(0, min(100, (valeur - tension_min) / (tension_max - tension_min) * 100))
-        # Mettre à jour le rectangle
-        global rect_id
-        rect_id = mettre_a_jour_batterie(canvas, rect_id, x, y, largeur, hauteur, pourcentage)
-    except ValueError:
-        print("Veuillez entrer une valeur valide.")
+    def create_ui(self):
+        """Créer l'interface utilisateur."""
+        self.frames = {}
 
-# Créer la fenêtre principale
-root = tk.Tk()
-root.title("Test Représentation de la charge des cellules")
+        # Section des voltages des cellules
+        self.cell_frame = ctk.CTkFrame(self)
+        self.frames["Cell Voltages"] = self.cell_frame
 
-# Créer un canvas pour dessiner la batterie
-canvas = tk.Canvas(root, width=400, height=300, bg="white")
-canvas.pack()
+        # Barres de progression pour les cellules
+        self.cell_bars = []
+        self.cell_voltages = []  # Liste pour les tensions des cellules
+        for i in range(13):
+            row, col = divmod(i, 2)  # Ajustement pour une meilleure lisibilité (2 colonnes)
+            label = ctk.CTkLabel(self.cell_frame, text=f"Cell {i+1}", font=("Arial", 16))
+            label.grid(row=row * 2, column=col * 2, pady=20, padx=10, sticky="w")
 
-# Définir les dimensions et la position du rectangle de la batterie
-x = 150
-y = 50
-largeur = 100
-hauteur = 200
+            # Jauge de progression plus épaisse
+            progress_bar = ctk.CTkProgressBar(self.cell_frame, orientation="horizontal", width=300, height=20)
+            progress_bar.set(0.5)  # Exemple: 50%
+            progress_bar.grid(row=row * 2, column=col * 2 + 1, pady=20, padx=10)
+            self.cell_bars.append(progress_bar)
 
-# Valeurs de tension
-tension_min = 3.0
-tension_max = 4.2
+            # Tension associée
+            voltage_label = ctk.CTkLabel(self.cell_frame, text="Voltage: 3.7V", font=("Arial", 14))
+            voltage_label.grid(row=row * 2 + 1, column=col * 2, columnspan=2, pady=10)
+            self.cell_voltages.append(voltage_label)
 
-# Dessiner une batterie initiale avec un pourcentage de charge de 50%
-rect_id = dessiner_batterie(canvas, x, y, largeur, hauteur, 50)
+        # Section des alertes
+        self.alert_frame = ctk.CTkFrame(self)
+        self.frames["Alerts"] = self.alert_frame
+        alert_title = ctk.CTkLabel(self.alert_frame, text="Alerts", font=("Arial", 20))
+        alert_title.pack(pady=10)
 
-# Champ pour entrer une nouvelle tension
-frame_controls = tk.Frame(root)
-frame_controls.pack(pady=10)
+        self.alert_lights = []
+        for i in range(5):
+            frame = ctk.CTkFrame(self.alert_frame, height=80)
+            frame.pack(pady=10, padx=20, fill="x")
 
-tk.Label(frame_controls, text="Tension (V) :").grid(row=0, column=0, padx=5)
-entry_tension = tk.Entry(frame_controls)
-entry_tension.grid(row=0, column=1, padx=5)
+            label = ctk.CTkLabel(frame, text=f"Alert {i+1}", font=("Arial", 18))
+            label.pack(side="top", pady=5)
 
-# Bouton pour mettre à jour la batterie
-btn_update = tk.Button(frame_controls, text="Mettre à jour", command=update_charge)
-btn_update.grid(row=0, column=2, padx=5)
+            light = ctk.CTkLabel(frame, text=" ", width=40, height=40, bg_color="red", corner_radius=20)
+            light.pack(side="top", pady=5)
+            self.alert_lights.append(light)
 
-# Lancer la boucle principale
-root.mainloop()
-tension_min = 3.0
-tension_max = 4.2
+            # Section des températures
+            self.temp_frame = ctk.CTkFrame(self)
+            self.frames["Temperatures"] = self.temp_frame
+            temp_title = ctk.CTkLabel(self.temp_frame, text="Temperatures", font=("Arial", 20))
+            temp_title.pack(pady=10)
 
-# Dessiner les batteries
-x = 50
-y = 50
-largeur = 80
-hauteur = 200
-espace = 20
+            self.temp_vars = []
+            self.temp_gauges = []
+            for i in range(3):
+                frame = ctk.CTkFrame(self.temp_frame, height=100)
+                frame.pack(pady=20, padx=20, fill="x")
 
-for i, tension in enumerate(tensions):
-    # Calculer le pourcentage de charge basé sur la tension
-    pourcentage = max(0, min(100, (tension - tension_min) / (tension_max - tension_min) * 100))
-    # Dessiner la batterie
-    dessiner_batterie(canvas, x, y, largeur, hauteur, pourcentage)
-    x += largeur + espace
+                # Barres de progression horizontales
+                temp_var = DoubleVar(value=25)
+                self.temp_vars.append(temp_var)
 
-# Lancer la boucle principale
-root.mainloop()
+                temp_gauge = ctk.CTkProgressBar(frame, orientation="horizontal", width=300, height=20)
+                temp_gauge.set(temp_var.get() / 100)  # Normaliser la température pour la jauge
+                temp_gauge.pack(side="left", padx=20)
+                self.temp_gauges.append(temp_gauge)
+
+                # Curseur pour démo
+                slider = ctk.CTkSlider(frame, from_=0, to=100, variable=temp_var, orientation="horizontal", width=300)
+                slider.pack(side="right", padx=20)
+
+                label = ctk.CTkLabel(frame, text=f"NTC {i + 1}: {temp_var.get()} °C", font=("Arial", 16))
+                label.pack(side="top", pady=5)
+
+                # Mettre à jour la jauge et l'étiquette
+                temp_var.trace("w", lambda *args, idx=i: self.update_temperature(idx))
+
+        # Section des versions HW/SW
+        self.version_frame = ctk.CTkFrame(self)
+        self.frames["Hardware/Software Versions"] = self.version_frame
+        version_title = ctk.CTkLabel(self.version_frame, text="Hardware / Software Versions", font=("Arial", 20))
+        version_title.pack(pady=10)
+
+        self.version_label = ctk.CTkLabel(self.version_frame, text="HW: 1.0, SW: 2.3")
+        self.version_label.pack()
+
+        # Section pour le numéro de série
+        self.serial_frame = ctk.CTkFrame(self)
+        self.frames["Serial Number"] = self.serial_frame
+        serial_title = ctk.CTkLabel(self.serial_frame, text="Serial Number", font=("Arial", 20))
+        serial_title.pack(pady=10)
+
+        self.serial_label = ctk.CTkLabel(self.serial_frame, text="SN123456789")
+        self.serial_label.pack()
+
+        # Section des statistiques de la batterie
+        self.stats_frame = ctk.CTkFrame(self)
+        self.frames["Battery Stats"] = self.stats_frame
+        stats_title = ctk.CTkLabel(self.stats_frame, text="Battery Stats", font=("Arial", 20))
+        stats_title.pack(pady=10)
+
+        self.stats_labels = {
+            "Capacity": ctk.CTkLabel(self.stats_frame, text="Capacity: 100%"),
+            "Health": ctk.CTkLabel(self.stats_frame, text="Health: 95%"),
+            "Cycles": ctk.CTkLabel(self.stats_frame, text="Cycles: 300"),
+            "Voltage": ctk.CTkLabel(self.stats_frame, text="Voltage: 48.0V")
+        }
+        for label in self.stats_labels.values():
+            label.pack(pady=5)
+
+        # Afficher le premier écran
+        self.show_frame("Cell Voltages")
+
+    def update_temperature(self, idx):
+        """Mettre à jour la jauge circulaire et l'étiquette en fonction du curseur."""
+        temp = self.temp_vars[idx].get()
+        self.temp_gauges[idx].set(temp / 100)  # Normaliser pour la jauge
+        self.temp_labels[idx].config(text=f"NTC {idx + 1}: {temp:.1f} °C")
+
+    def show_frame(self, frame_name):
+        """Afficher une frame spécifique."""
+        for frame in self.frames.values():
+            frame.pack_forget()
+        self.frames[frame_name].pack(pady=20, padx=20, fill="both", expand=True)
+
+    def resize_widgets(self, event):
+        """Redimensionner les widgets en fonction de la fenêtre."""
+        pass  # Placeholder si besoin de redimensionner les widgets dynamiquement
+
+if __name__ == "__main__":
+    app = BMSInterface()
+
+    app.mainloop()
